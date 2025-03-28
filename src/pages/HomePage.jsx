@@ -1,43 +1,49 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import MovieList from "../components/MovieList";
-import css from "./HomePage.module.css";
+import { useEffect, useState } from "react";
+import PacmanLoader from "react-spinners/PacmanLoader";
+import { fetchTrendingMovies } from "../api/apiServer";
 
-const HomePage = () => {
-  const [movies, setMovies] = useState([]);
-  const [loading, setLoading] = useState(true);
+import Error from "../components/error/Error";
+import MovieList from "../components/moviesList/MoviesList";
+
+export default function HomePage() {
+  const [trandingMovies, setTrandingMovies] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const apiKey = "3a694353f8738d14f5f72dd344727341";
-  const apiUrl = "https://api.themoviedb.org/3/movie/popular";
-
   useEffect(() => {
-    axios
-      .get(apiUrl, {
-        params: {
-          api_key: apiKey,
-          language: "en-US",
-          page: 1,
-        },
-      })
-      .then((response) => {
-        setMovies(response.data.results);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+    setIsLoading(true);
+    setError(null);
+
+    const getTrandingMovies = async () => {
+      try {
+        const data = await fetchTrendingMovies();
+        setTrandingMovies(data);
+      } catch (err) {
+        setError(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    getTrandingMovies();
   }, []);
-  if (loading) return <p>Завантаження...</p>;
-  if (error) return <p>{error}</p>;
 
   return (
-    <div>
-      <h1 className={css.title}>Trending today</h1>
-      <MovieList movies={movies} />
-    </div>
+    <>
+      {isLoading && (
+        <PacmanLoader
+          color="red"
+          cssOverride={{
+            margin: "30px auto",
+            color: "#007bff"
+          }}
+          size={20}
+          aria-label="Loading Spinner"
+          data-testid="loader"
+        />
+      )}
+      {error && <Error />}
+      {trandingMovies && <MovieList movies={trandingMovies} />}
+    </>
   );
-};
-
-export default HomePage;
+}

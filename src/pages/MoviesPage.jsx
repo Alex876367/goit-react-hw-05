@@ -1,77 +1,64 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import axios from "axios";
-import MovieList from "../components/MovieList";
-import css from "./MoviesPage.module.css";
+import PacmanLoader from "react-spinners/PacmanLoader";
+import { fetchSearchMovie } from "../api/apiServer";
 
-const apiKey = "3a694353f8738d14f5f72dd344727341";
-axios.defaults.baseURL = "https://api.themoviedb.org/3";
+import MovieList from "../components/moviesList/MoviesList";
+import Input from "../components/input/Input";
 
-const END_POINTS = {
-  querySearch: "/search/movie",
-};
-export const fetchMovies = async (query, page = 1) => {
-  const res = await axios.get(
-    `${END_POINTS.querySearch}?api_key=${apiKey}&page=${page}&query=${query}&language=en-US&include_adult=false`
-  );
+export default function MoviesPage() {
+  const [searchingMovies, setSearchingMovies] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchParams, setSerachParams] = useSearchParams();
+  const query = searchParams.get("query") ?? "";
 
-  return res.data.results;
-};
-
-const MoviesPage = () => {
-  const [movies, setMovies] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState("");
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [errorMessage, setErrorMessage] = useState("");
-  const searchRequest = searchParams.get("query");
+  const heandleSupmit = (query) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set("query", query);
+    setSerachParams(newSearchParams);
+  };
 
   useEffect(() => {
-    if (!searchRequest) {
-      return;
-    }
-    const fetchMovie = () => {
-      setLoading(true);
-      fetchMovies(searchRequest)
-        .then((results) => {
-          if (!results.length) {
-            alert("No movies found!");
-          }
+    if (query === "") return;
 
-          setMovies(results);
-        })
-        .catch((error) => {
-          setError("Ooops. Something went wrong...");
-          console.log(error);
-        })
-        .finally(setLoading(false));
+    setIsLoading(true);
+    setError(null);
+    const getTrandingMovies = async () => {
+      try {
+        const data = await fetchSearchMovie(query);
+        setSearchingMovies(data);
+      } catch (err) {
+        setError(err);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    fetchMovie();
-  }, [searchRequest]);
-  function handleSearch() {
-    if (!query) {
-      setErrorMessage("Please enter a movie name");
-      return;
-    }
-    setErrorMessage("");
-    setSearchParams({ query });
-  }
+    query !== "" && getTrandingMovies();
+  }, [query]);
 
   return (
     <>
-      <div className={css.contimputbtn}>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter the name of the movie"
+      <Input onSubmit={heandleSupmit} />
+      {isLoading && (
+        <PacmanLoader
+          color="red"
+          cssOverride={{
+            margin: "30px auto",
+            color: "#007bff"
+          }}
+          size={20}
+          aria-label="Loading Spinner"
+          data-testid="loader"
         />
-        <button onClick={handleSearch}>Search</button>
-      </div>
-      {errorMessage && <p className={css.errorMessage}>{errorMessage}</p>}
-      {loading ? <p>Loading...</p> : <MovieList movies={movies} />}
+      )}
+      {error && <Error />}
+      {searchingMovies &&
+        (searchingMovies.length > 0 ? (
+          <MovieList movies={searchingMovies} />
+        ) : (
+          <p>Not Faund movies...</p>
+        ))}
     </>
   );
-};
-
-export default MoviesPage;
+}

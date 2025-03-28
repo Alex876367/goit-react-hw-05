@@ -1,91 +1,78 @@
-import { useState, useEffect, Suspense, useRef } from "react";
-import axios from "axios";
-import {
-  useParams,
-  useNavigate,
-  NavLink,
-  Outlet,
-  useLocation,
-} from "react-router-dom";
-import css from "./MovieDetailsPage.module.css";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { Outlet, useLocation, useParams } from "react-router-dom";
+import PacmanLoader from "react-spinners/PacmanLoader";
+import { fetchMovieById } from "../api/apiServer";
 
-const MovieDetailsPage = () => {
+import Error from "../components/error/Error";
+import MovieDetails from "../components/movieDetails/MovieDetails";
+import AdditionalInfo from "../components/additionalInfo/AdditionalInfo";
+import GoBackBtn from "../components/goBackBtn/GoBackBtn";
+
+export default function MovieDetailsPage() {
   const { movieId } = useParams();
   const [movie, setMovie] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
   const location = useLocation();
-
-  const prevLocation = useRef(location.state?.from || "/movies");
-
-  const apiKey = "3a694353f8738d14f5f72dd344727341";
-  const apiUrl = `https://api.themoviedb.org/3/movie/${movieId}`;
+  const pathLink = useRef(location.state);
 
   useEffect(() => {
-    axios
-      .get(apiUrl, {
-        params: {
-          api_key: apiKey,
-          language: "en-US",
-        },
-      })
-      .then((response) => {
-        setMovie(response.data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [movieId, apiUrl, apiKey, setMovie, setLoading]);
+    setIsLoading(true);
+    setError(null);
+    const getMovie = async () => {
+      try {
+        const data = await fetchMovieById(movieId);
+        setMovie(data);
+      } catch (err) {
+        setError(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const handleGoBack = () => {
-    navigate(prevLocation.current);
-  };
-
-  if (loading) return <p>Loading...</p>;
+    getMovie();
+  }, [movieId]);
 
   return (
-    <div>
-      <div className={css.contimginfo}>
-        <div className={css.contImg}>
-          <div>
-            <button onClick={handleGoBack} className={css.goBackLink}>
-              Go Back
-            </button>
-          </div>
-          <img
-            src={`https://image.tmdb.org/t/p/w500/${movie.poster_path}`}
-            alt={movie.title}
-          />
-        </div>
+    <>
+      {isLoading && (
+        <PacmanLoader
+          color="red"
+          cssOverride={{
+            margin: "30px auto",
+            color: "#007bff"
+          }}
+          size={20}
+          aria-label="Loading Spinner"
+          data-testid="loader"
+        />
+      )}
+      {error && <Error />}
+      {movie && (
+        <>
+          <GoBackBtn path={pathLink.current} />
+          <MovieDetails movie={movie} />
+          <AdditionalInfo />
 
-        <div className={css.infomovie}>
-          <h1>{movie.title}</h1>
-          <h2>Overview</h2>
-          <p>{movie.overview}</p>
-          <h2>Genres</h2>
-          <h3>
-            {movie.genres && movie.genres.length > 0
-              ? movie.genres.map((genre) => genre.name).join(", ")
-              : "Genres not available"}
-          </h3>
-        </div>
-      </div>
-
-      <ul>
-        <li>
-          <NavLink to="cast" className={css.pagelinkclass}>
-            Cast
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to="reviews" className={css.pagelinkclass}>
-            Reviews
-          </NavLink>
-        </li>
-      </ul>
-      <Suspense fallback={<div>Loading subpage...</div>}>
-        <Outlet />
-      </Suspense>
-    </div>
+          <Suspense
+            fallback={
+              <PacmanLoader
+                color="red"
+                cssOverride={{
+                  margin: "30px auto",
+                  color: "#007bff"
+                }}
+                size={20}
+                aria-label="Loading Spinner"
+                data-testid="loader"
+              />
+            }
+          >
+            <Outlet />
+          </Suspense>
+        </>
+      )}
+    </>
   );
-};
-export default MovieDetailsPage;
+}
